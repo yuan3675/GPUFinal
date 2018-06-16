@@ -1,4 +1,6 @@
 <resources>
     <string name="app_name">GPUFinal</string>
     <string name="action_settings">Settings</string>
+    <string name="select_a_video">Select a video</string>
+    <string name="appbar_scrolling_view" translatable="false">android.support.design.widget.AppBarLayout$ScrollingViewBehavior</string>
 </resources>

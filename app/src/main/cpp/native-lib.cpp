@@ -1,4 +1,6 @@
 #define CL_USE_DEPRECATED_OPENCL_1_2_APIS
+#define CL_TARGET_OPENCL_VERSION 220
+#include <iostream>
 #include <jni.h>
 #include <string>
 #include <CL/cl.h>
@@ -10,8 +12,7 @@
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/stat.h>
-
-
+#include <opencv/cv.h>
 
 
 extern "C" {
@@ -45,6 +46,11 @@ Java_com_selab_gpufinal_MainActivity_foo(
         JNIEnv *env,
         jobject /* this */)
 {
+
+    //test cv function
+    void *ptr = cvAlloc(2000);
+    cvFree(&ptr);
+
     int err;                            // error code returned from api calls
 
     float data[DATA_SIZE];              // original data set given to device
@@ -67,7 +73,6 @@ Java_com_selab_gpufinal_MainActivity_foo(
     cl_mem output;                      // device memory used for the output array
 
     // Fill our data set with random float values
-    //
     int i = 0;
     unsigned int count = DATA_SIZE;
     for(i = 0; i < count; i++)
@@ -216,7 +221,6 @@ Java_com_selab_gpufinal_MainActivity_foo(
     clReleaseKernel(kernel);
     clReleaseCommandQueue(commands);
     clReleaseContext(context);
-
     return correct == count;
 }
 
