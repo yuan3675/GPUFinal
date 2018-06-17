@@ -1,11 +1,14 @@
 package com.selab.gpufinal;
 
+import android.Manifest;
+import android.content.pm.PackageManager;
 import android.database.Cursor;
 import android.graphics.Bitmap;
 import android.media.MediaMetadataRetriever;
 import android.net.Uri;
 import android.os.Bundle;
 import android.provider.MediaStore;
+import android.support.v4.content.ContextCompat;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
@@ -15,6 +18,11 @@ import android.support.v7.widget.Toolbar;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.content.Intent;
+
+import java.io.FileDescriptor;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.IOException;
 
 import wseemann.media.FFmpegMediaMetadataRetriever;
 
@@ -32,6 +40,7 @@ public class MainActivity extends AppCompatActivity {
 
 
     private static final int REQUEST_TAKE_GALLERY_VIDEO = 1;
+    private static final int MY_PERMISSIONS_REQUEST = 1;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -42,6 +51,16 @@ public class MainActivity extends AppCompatActivity {
         // Example of a call to a native method
         tv = findViewById(R.id.sample_text);
         button = findViewById(R.id.choose_videos_button);
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE)
+                != PackageManager.PERMISSION_GRANTED) {
+            // Permission is not granted
+            requestPermissions(new String[]{Manifest.permission.READ_EXTERNAL_STORAGE}, MY_PERMISSIONS_REQUEST);
+        }
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE)
+                != PackageManager.PERMISSION_GRANTED) {
+            // Permission is not granted
+            requestPermissions(new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE}, MY_PERMISSIONS_REQUEST);
+        }
         button.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
@@ -55,20 +74,19 @@ public class MainActivity extends AppCompatActivity {
 
     public static Bitmap getVideoFrame(String path) {
         FFmpegMediaMetadataRetriever retriever = new FFmpegMediaMetadataRetriever();
+        Bitmap bitmap = null;
         try {
             retriever.setDataSource(path);
-            return retriever.getFrameAtTime();
+            bitmap = retriever.getFrameAtTime();
+            retriever.release();
         } catch (IllegalArgumentException ex) {
+            Log.e("ERROR!!!", "Path " + path + " illegal");
             ex.printStackTrace();
         } catch (RuntimeException ex) {
+            Log.e("ERROR!!!", "RuntimeException");
             ex.printStackTrace();
-        } finally {
-            try {
-                retriever.release();
-            } catch (RuntimeException ex) {
-            }
         }
-        return null;
+        return bitmap;
     }
 
     @Override
@@ -104,10 +122,11 @@ public class MainActivity extends AppCompatActivity {
 
                 // MEDIA GALLERY
                 selectedImagePath = getPath(selectedImageUri);
+
                 if (selectedImagePath != null) {
                     Bitmap videoFrame = getVideoFrame(selectedImagePath);
                     if (videoFrame == null) {
-                        tv.setText(selectedImagePath + '\n' + "fail");
+                        tv.setText("fail");
                     }
                     else {
                         tv.setText("success");
