@@ -12,8 +12,12 @@
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/stat.h>
-#include <opencv/cv.h>
+#include <opencv2/opencv.hpp>
 
+using namespace cv;
+using namespace std;
+
+std::string jstring2string(JNIEnv *env, jstring jStr);
 
 extern "C" {
 
@@ -224,4 +228,40 @@ Java_com_selab_gpufinal_MainActivity_foo(
     return correct == count;
 }
 
+JNIEXPORT jstring JNICALL
+Java_com_selab_gpufinal_MainActivity_tracking(
+        JNIEnv *env,
+        jobject /* this */,
+        jstring path) {
+    string filePath = jstring2string(env, path);
+    VideoCapture video;
+    video.open(filePath);
+    if (!video.isOpened()) {
+        std::string fail = "Failed to open video";
+        return env->NewStringUTF(fail.c_str());
+    }
+    string good = "Open video successfully";
+    return env->NewStringUTF(good.c_str());
 }
+
+}
+
+std::string jstring2string(JNIEnv *env, jstring jStr) {
+    if (!jStr)
+        return "";
+
+    const jclass stringClass = env->GetObjectClass(jStr);
+    const jmethodID getBytes = env->GetMethodID(stringClass, "getBytes", "(Ljava/lang/String;)[B");
+    const jbyteArray stringJbytes = (jbyteArray) env->CallObjectMethod(jStr, getBytes, env->NewStringUTF("UTF-8"));
+
+    size_t length = (size_t) env->GetArrayLength(stringJbytes);
+    jbyte* pBytes = env->GetByteArrayElements(stringJbytes, NULL);
+
+    std::string ret = std::string((char *)pBytes, length);
+    env->ReleaseByteArrayElements(stringJbytes, pBytes, JNI_ABORT);
+
+    env->DeleteLocalRef(stringJbytes);
+    env->DeleteLocalRef(stringClass);
+    return ret;
+}
+

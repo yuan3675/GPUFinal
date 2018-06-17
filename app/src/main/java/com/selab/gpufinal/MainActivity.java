@@ -1,6 +1,8 @@
 package com.selab.gpufinal;
 
 import android.database.Cursor;
+import android.graphics.Bitmap;
+import android.media.MediaMetadataRetriever;
 import android.net.Uri;
 import android.os.Bundle;
 import android.provider.MediaStore;
@@ -13,6 +15,8 @@ import android.support.v7.widget.Toolbar;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.content.Intent;
+
+import wseemann.media.FFmpegMediaMetadataRetriever;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -49,6 +53,24 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
+    public static Bitmap getVideoFrame(String path) {
+        FFmpegMediaMetadataRetriever retriever = new FFmpegMediaMetadataRetriever();
+        try {
+            retriever.setDataSource(path);
+            return retriever.getFrameAtTime();
+        } catch (IllegalArgumentException ex) {
+            ex.printStackTrace();
+        } catch (RuntimeException ex) {
+            ex.printStackTrace();
+        } finally {
+            try {
+                retriever.release();
+            } catch (RuntimeException ex) {
+            }
+        }
+        return null;
+    }
+
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
         // Inflate the menu; this adds items to the action bar if it is present.
@@ -83,7 +105,13 @@ public class MainActivity extends AppCompatActivity {
                 // MEDIA GALLERY
                 selectedImagePath = getPath(selectedImageUri);
                 if (selectedImagePath != null) {
-                    tv.setText(selectedImagePath);
+                    Bitmap videoFrame = getVideoFrame(selectedImagePath);
+                    if (videoFrame == null) {
+                        tv.setText(selectedImagePath + '\n' + "fail");
+                    }
+                    else {
+                        tv.setText("success");
+                    }
                 }
             }
         }
@@ -129,4 +157,5 @@ public class MainActivity extends AppCompatActivity {
      */
     public native String stringFromJNI();
     public native int foo();
+    public native String tracking(String path);
 }
