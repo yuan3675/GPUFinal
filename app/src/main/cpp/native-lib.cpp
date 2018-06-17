@@ -14,6 +14,7 @@
 #include <sys/stat.h>
 #include <opencv2/opencv.hpp>
 
+
 using namespace cv;
 using namespace std;
 
@@ -240,8 +241,36 @@ Java_com_selab_gpufinal_MainActivity_tracking(
         std::string fail = "Failed to open video";
         return env->NewStringUTF(fail.c_str());
     }
-    string good = "Open video successfully";
-    return env->NewStringUTF(good.c_str());
+
+    string::size_type pAt = filePath.find_last_of('.');                  // Find extension point
+    string NAME = "/storage/emulated/0/DCIM/Camera/produceOutput.mp4";   // Form the new name with container
+    int ex = CV_FOURCC('H', '2', '6', '4');     // Get Codec Type- Int form
+    // Transform from int to char via Bitwise operators
+    Size S = Size((int) video.get(CAP_PROP_FRAME_WIDTH),    // Acquire input size
+                  (int) video.get(CAP_PROP_FRAME_HEIGHT));
+    VideoWriter outputVideo;                                        // Open the output
+    outputVideo.open(NAME, ex, video.get(CAP_PROP_FPS), S, true);
+
+    if (!outputVideo.isOpened())
+    {
+        string fail = "Could not open the output video for write ";
+        return env->NewStringUTF(fail.c_str());
+    }
+
+
+    Mat src, res;
+    vector<Mat> spl;
+    for(;;) //Show the image captured in the window and repeat
+    {
+        video >> src;              // read
+        if (src.empty()) break;         // check if at end
+        // detect target in each frame
+
+        outputVideo.write(res); //save
+    }
+
+    string success = "Done";
+    return env->NewStringUTF(success.c_str());
 }
 
 }

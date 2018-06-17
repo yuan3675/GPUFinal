@@ -124,13 +124,8 @@ public class MainActivity extends AppCompatActivity {
                 selectedImagePath = getPath(selectedImageUri);
 
                 if (selectedImagePath != null) {
-                    Bitmap videoFrame = getVideoFrame(selectedImagePath);
-                    if (videoFrame == null) {
-                        tv.setText("fail");
-                    }
-                    else {
-                        tv.setText("success");
-                    }
+                    String result = tracking(selectedImagePath);
+                    tv.setText(result);
                 }
             }
         }
