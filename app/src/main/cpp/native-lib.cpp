@@ -235,16 +235,15 @@ Java_com_selab_gpufinal_MainActivity_foo(
 JNIEXPORT jstring JNICALL
 Java_com_selab_gpufinal_MainActivity_tracking(
         JNIEnv *env,
-        jobject /* this */,
-        jstring path) {
-    string filePath = jstring2string(env, path);
+        jobject /* this */) {
+
     VideoCapture video;
-    video.open(filePath);
+    video.open(0);
     if (!video.isOpened()) {
-        std::string fail = "Failed to open video at path: " + filePath;
+        std::string fail = "Failed to open camera ";
         return env->NewStringUTF(fail.c_str());
     }
-
+/*
     string::size_type pAt = filePath.find_last_of('.');                  // Find extension point
     string NAME = "/storage/emulated/0/DCIM/Camera/produceOutput.mp4";   // Form the new name with container
     int ex = CV_FOURCC('H', '2', '6', '4');     // Get Codec Type- Int form
@@ -271,7 +270,7 @@ Java_com_selab_gpufinal_MainActivity_tracking(
 
         outputVideo.write(res); //save
     }
-
+*/
     string success = "Done";
     return env->NewStringUTF(success.c_str());
 }
@@ -328,4 +327,17 @@ Java_com_selab_gpufinal_MainActivity_tracking__J(JNIEnv *env, jobject instance,
 {
     Mat current_mat = *(Mat *)frameAddresses;
     pre_mat = current_mat.clone();
+}extern "C"
+JNIEXPORT jstring JNICALL
+Java_com_selab_gpufinal_CameraActivity_tracking(JNIEnv *env, jobject instance) {
+
+    // TODO
+    VideoCapture video;
+    video.open(0);
+    if (!video.isOpened()) {
+        std::string fail = "Failed to open camera ";
+        return env->NewStringUTF(fail.c_str());
+    }
+    string success = "Done";
+    return env->NewStringUTF(success.c_str());
 }
