@@ -251,4 +251,5 @@ public class MainActivity extends AppCompatActivity {
     public native int foo();
     public native String tracking(String path);
     public native int videoTracking(long[] frameAddresses);
+    public native void tracking(long frameAddresses);
 }

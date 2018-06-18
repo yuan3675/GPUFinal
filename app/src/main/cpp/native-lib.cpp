@@ -23,6 +23,8 @@ std::string jstring2string(JNIEnv *env, jstring jStr);
 
 extern "C" {
 
+Mat pre_mat;
+
 JNIEXPORT jstring
 JNICALL
 Java_com_selab_gpufinal_MainActivity_stringFromJNI(
@@ -317,4 +319,13 @@ Java_com_selab_gpufinal_MainActivity_videoTracking(JNIEnv *env, jobject instance
 
     env->ReleaseLongArrayElements(frame_addresses, frames, 0);
     return frame_num;
+}
+
+extern "C"
+JNIEXPORT void JNICALL
+Java_com_selab_gpufinal_MainActivity_tracking__J(JNIEnv *env, jobject instance,
+                                                 jlong frameAddresses)
+{
+    Mat current_mat = *(Mat *)frameAddresses;
+    pre_mat = current_mat.clone();
 }
