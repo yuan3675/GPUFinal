@@ -23,8 +23,11 @@ import java.io.FileDescriptor;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.util.ArrayList;
 
 import wseemann.media.FFmpegMediaMetadataRetriever;
+import org.opencv.android.Utils;
+import org.opencv.core.Mat;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -37,6 +40,7 @@ public class MainActivity extends AppCompatActivity {
     public String selectedImagePath;
     private TextView tv;
     private Button button;
+    private ArrayList<Mat> matArrayList = new ArrayList<>(); // just for avoiding GC
 
 
     private static final int REQUEST_TAKE_GALLERY_VIDEO = 1;
@@ -72,12 +76,62 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
-    public static Bitmap getVideoFrame(String path) {
-        FFmpegMediaMetadataRetriever retriever = new FFmpegMediaMetadataRetriever();
-        Bitmap bitmap = null;
+    public long[] getVideoFrameAddresses(String path) {
+        MediaMetadataRetriever retriever = new MediaMetadataRetriever();
+        ArrayList<Long> frameAddresses = new ArrayList<>();
+        matArrayList.clear();
+        final int fps = 20;
+        long interval = 1000000 / fps;
+
+
+
+
+        final int thread_num = 16;
+        VideoFrameGetter[] videoFrameGetters = new VideoFrameGetter[thread_num];
+        Thread[] threads = new Thread[thread_num];
+
         try {
+            /*
             retriever.setDataSource(path);
-            bitmap = retriever.getFrameAtTime();
+            String time = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION);
+            long timeInMilliSec = Long.parseLong(time);
+            long timeInMicroSec = timeInMilliSec * 1000;
+            int count = 0;
+            for (int i = 0; i <= timeInMicroSec; i += interval) {
+                Bitmap bitmap = retriever.getFrameAtTime(i);
+                Mat mat = new Mat();
+                Utils.bitmapToMat(bitmap, mat);
+                frameAddresses.add(mat.getNativeObjAddr());
+                matArrayList.add(mat);
+                Log.i("Count", "" + ++count);
+            }
+            */
+
+
+            retriever.setDataSource(path);
+            String time = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION);
+            long timeInMilliSec = Long.parseLong(time);
+            long timeInMicroSec = timeInMilliSec * 1000;
+            int frame_num = (int)(timeInMicroSec / interval + 1);
+            frameAddresses.ensureCapacity(frame_num);
+            for (int i = 0; i < frame_num; ++i) {
+                matArrayList.add(null);
+                frameAddresses.add(null);
+            }
+
+            for (int i = 0; i < thread_num; ++i) {
+                videoFrameGetters[i] = new VideoFrameGetter(retriever, frameAddresses, matArrayList, thread_num, i, timeInMicroSec, interval);
+            }
+            for (int i = 0; i < thread_num; ++i) {
+                threads[i] = new Thread(videoFrameGetters[i]);
+                threads[i].start();
+            }
+            for (int i = 0; i < thread_num; ++i) {
+                threads[i].join();
+            }
+
+
+
             retriever.release();
         } catch (IllegalArgumentException ex) {
             Log.e("ERROR!!!", "Path " + path + " illegal");
@@ -85,8 +139,10 @@ public class MainActivity extends AppCompatActivity {
         } catch (RuntimeException ex) {
             Log.e("ERROR!!!", "RuntimeException");
             ex.printStackTrace();
+        } catch (InterruptedException e) {
+            e.printStackTrace();
         }
-        return bitmap;
+        return toPrimitives(frameAddresses);
     }
 
     @Override
@@ -124,8 +180,15 @@ public class MainActivity extends AppCompatActivity {
                 selectedImagePath = getPath(selectedImageUri);
 
                 if (selectedImagePath != null) {
-                    String result = tracking(selectedImagePath);
-                    tv.setText(result);
+                    long[] videoFrames = getVideoFrameAddresses(selectedImagePath);
+                    int result = videoTracking(videoFrames);
+                    if (videoFrames.length == result) {
+                        String text = "" + result;
+                        tv.setText(text);
+                    } else {
+                        String text = "" + -1;
+                        tv.setText(text);
+                    }
                 }
             }
         }
@@ -165,6 +228,21 @@ public class MainActivity extends AppCompatActivity {
             return null;
     }
 
+    public static long[] toPrimitives(ArrayList<Long> objects) {
+        int objects_len = objects.size();
+
+        for (int i = objects_len - 1; i >= 0; --i) {
+            if (objects.get(i) != null)
+                break;
+            --objects_len;
+        }
+
+        long[] primitives = new long[objects_len];
+        for (int i = 0; i < objects_len; i++)
+            primitives[i] = objects.get(i);
+        return primitives;
+    }
+
     /**
      * A native method that is implemented by the 'native-lib' native library,
      * which is packaged with this application.
@@ -172,4 +250,5 @@ public class MainActivity extends AppCompatActivity {
     public native String stringFromJNI();
     public native int foo();
     public native String tracking(String path);
+    public native int videoTracking(long[] frameAddresses);
 }

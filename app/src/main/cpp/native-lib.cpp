@@ -13,6 +13,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <opencv2/opencv.hpp>
+#include <vector>
 
 
 using namespace cv;
@@ -238,7 +239,7 @@ Java_com_selab_gpufinal_MainActivity_tracking(
     VideoCapture video;
     video.open(filePath);
     if (!video.isOpened()) {
-        std::string fail = "Failed to open video";
+        std::string fail = "Failed to open video at path: " + filePath;
         return env->NewStringUTF(fail.c_str());
     }
 
@@ -294,3 +295,26 @@ std::string jstring2string(JNIEnv *env, jstring jStr) {
     return ret;
 }
 
+extern "C"
+JNIEXPORT jint JNICALL
+Java_com_selab_gpufinal_MainActivity_videoTracking(JNIEnv *env, jobject instance,
+                                                    jlongArray frame_addresses)
+{
+    std::vector<cv::Mat> mat_vec;
+
+    int frame_num = env->GetArrayLength(frame_addresses);
+
+    jlong *frames = env->GetLongArrayElements(frame_addresses, NULL);
+    for (int i = 0; i < frame_num; ++i) {
+        mat_vec.insert(mat_vec.end(), *(cv::Mat *)frames[i]);
+    }
+
+    std::string success_str = "success";
+    std::string fail_str = "fail";
+
+
+
+
+    env->ReleaseLongArrayElements(frame_addresses, frames, 0);
+    return frame_num;
+}
