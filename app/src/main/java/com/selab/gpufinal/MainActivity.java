@@ -117,4 +117,6 @@ public class MainActivity extends AppCompatActivity {
         super.onStop();
         Log.i("INFO", "onStop");
     }
+
+    public native void initVideoTracking(long address);
 }

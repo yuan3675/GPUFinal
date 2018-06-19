@@ -24,6 +24,7 @@ std::string jstring2string(JNIEnv *env, jstring jStr);
 extern "C" {
 
 Mat pre_mat;
+Mat target_mat;
 
 JNIEXPORT jstring
 JNICALL
@@ -340,4 +341,31 @@ Java_com_selab_gpufinal_CameraActivity_tracking(JNIEnv *env, jobject instance) {
     }
     string success = "Done";
     return env->NewStringUTF(success.c_str());
+}
+
+extern "C"
+JNIEXPORT void JNICALL
+Java_com_selab_gpufinal_MainActivity_initVideoTracking(JNIEnv *env, jobject instance,
+                                                       jlong address) {
+    // TODO
+    target_mat = *(Mat *) address;
+}
+#define SIZE 1166440
+struct point {
+    int x;
+    int y;
+};
+
+struct points {
+    struct point p[SIZE];
+    int size;
+} path;
+
+extern "C"
+JNIEXPORT void JNICALL
+Java_com_selab_gpufinal_CameraActivity_videoTracking(JNIEnv *env, jobject instance, jlong address) {
+
+    Mat *mat_ptr = (Mat *)address;
+
+    pre_mat = *(Mat *)address;
 }

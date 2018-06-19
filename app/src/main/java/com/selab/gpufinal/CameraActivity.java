@@ -98,6 +98,7 @@ public class CameraActivity extends Activity implements CameraBridgeViewBase.CvC
         Core.rotate(mRgba, mRgba, Core.ROTATE_90_CLOCKWISE);
         Mat mRgb = new Mat();
         Imgproc.cvtColor(mRgba, mRgb, Imgproc.COLOR_BGRA2BGR);
+        videoTracking(mRgb.getNativeObjAddr());
         videoWriter.write(mRgb);
         return mRgba;
     }
@@ -128,4 +129,8 @@ public class CameraActivity extends Activity implements CameraBridgeViewBase.CvC
     public void onClick(View view) {
         this.finish();
     }
+
+    public native void videoTracking(long address);
 }
+
+
