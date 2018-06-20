@@ -11,7 +11,7 @@ android {
         testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
         externalNativeBuild {
             cmake {
-                cppFlags "-std=c++11 -frtti -fexceptions"
+                cppFlags "-std=c++11 -frtti -fexceptions -O3"
                 arguments "-DOpenCV_DIR=" + "libs/OpenCV-android-sdk" + "/sdk/native/jni" // , "-DANDROID_ARM_NEON=TRUE"
             }
         }

@@ -22,6 +22,7 @@ import org.opencv.core.Core;
 import org.opencv.core.CvType;
 import org.opencv.core.Mat;
 import org.opencv.core.Size;
+import org.opencv.imgcodecs.Imgcodecs;
 import org.opencv.imgproc.Imgproc;
 import org.opencv.videoio.VideoCapture;
 import org.opencv.videoio.VideoWriter;
@@ -42,6 +43,10 @@ public class CameraActivity extends Activity implements CameraBridgeViewBase.CvC
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_camera);
+
+        Mat target = Imgcodecs.imread(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS) + "/finger.pgm", Imgcodecs.IMREAD_GRAYSCALE);
+        //Imgproc.cvtColor(target, target, Imgproc.COLOR_BGR2GRAY);
+        detectAndCompute(target.getNativeObjAddr());
 
         cameraPreview = (CameraBridgeViewBase) findViewById(R.id.sample_test_camera_view);
         cameraPreview.setMaxFrameSize(1920, 1080);
@@ -97,9 +102,13 @@ public class CameraActivity extends Activity implements CameraBridgeViewBase.CvC
         mRgba = inputFrame.rgba();
         Core.rotate(mRgba, mRgba, Core.ROTATE_90_CLOCKWISE);
         Mat mRgb = new Mat();
+        Mat mGray = new Mat();
         Imgproc.cvtColor(mRgba, mRgb, Imgproc.COLOR_BGRA2BGR);
-        videoTracking(mRgb.getNativeObjAddr());
-        videoWriter.write(mRgb);
+        Imgproc.cvtColor(mRgba, mGray, Imgproc.COLOR_BGRA2GRAY);
+        Log.e("before", "------------------------------------------------------------------------------------------------");
+        Log.e("Find", "" + videoTracking(mGray.getNativeObjAddr(), mRgba.getNativeObjAddr()));
+        Log.e("After", "------------------------------------------------------------------------------------------------");
+        //videoWriter.write(mRgb);
         return mRgba;
     }
 
@@ -130,7 +139,8 @@ public class CameraActivity extends Activity implements CameraBridgeViewBase.CvC
         this.finish();
     }
 
-    public native void videoTracking(long address);
+    public native boolean videoTracking(long address, long color_addr);
+    public native void detectAndCompute(long address);
 }
 
 

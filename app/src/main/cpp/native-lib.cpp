@@ -14,7 +14,12 @@
 #include <sys/stat.h>
 #include <opencv2/opencv.hpp>
 #include <vector>
+#include "sift.hpp"
 
+
+
+extern VL::Sift *sift_ptr;
+VL::Sift sift;
 
 using namespace cv;
 using namespace std;
@@ -24,7 +29,7 @@ std::string jstring2string(JNIEnv *env, jstring jStr);
 extern "C" {
 
 Mat pre_mat;
-Mat target_mat;
+Mat target_mat, target_descriptor;
 
 JNIEXPORT jstring
 JNICALL
@@ -38,15 +43,15 @@ Java_com_selab_gpufinal_MainActivity_stringFromJNI(
 
 #define DATA_SIZE 1024
 const char *KernelSource = "\n" \
-"__kernel void square(                                                       \n" \
-"   __global float* input,                                              \n" \
-"   __global float* output,                                             \n" \
-"   const unsigned int count)                                           \n" \
-"{                                                                      \n" \
-"   int i = get_global_id(0);                                           \n" \
-"   if(i < count)                                                       \n" \
-"       output[i] = input[i] * input[i];                                \n" \
-"}                                                                      \n" \
+"__kernel void square(                                                       \n"
+"   __global float* input,                                              \n"
+"   __global float* output,                                             \n"
+"   const unsigned int count)                                           \n"
+"{                                                                      \n"
+"   int i = get_global_id(0);                                           \n"
+"   if(i < count)                                                       \n"
+"       output[i] = input[i] * input[i];                                \n"
+"}                                                                      \n"
 "\n";
 
 JNIEXPORT jint
@@ -56,9 +61,6 @@ Java_com_selab_gpufinal_MainActivity_foo(
         jobject /* this */)
 {
 
-    //test cv function
-    void *ptr = cvAlloc(2000);
-    cvFree(&ptr);
 
     int err;                            // error code returned from api calls
 
@@ -300,7 +302,7 @@ std::string jstring2string(JNIEnv *env, jstring jStr) {
 extern "C"
 JNIEXPORT jint JNICALL
 Java_com_selab_gpufinal_MainActivity_videoTracking(JNIEnv *env, jobject instance,
-                                                    jlongArray frame_addresses)
+                                                   jlongArray frame_addresses)
 {
     std::vector<cv::Mat> mat_vec;
 
@@ -360,12 +362,134 @@ struct points {
     struct point p[SIZE];
     int size;
 } path;
+extern void detectAndCompute(Mat* address, int flag);
+float dist(float *a, float *b);
 
+typedef struct coor {
+    int x;
+    int y;
+    int neigh_num;
+    struct coor **neigh_ptr;
+} coor;
 extern "C"
-JNIEXPORT void JNICALL
-Java_com_selab_gpufinal_CameraActivity_videoTracking(JNIEnv *env, jobject instance, jlong address) {
+JNIEXPORT jboolean JNICALL
+Java_com_selab_gpufinal_CameraActivity_videoTracking(JNIEnv *env, jobject instance, jlong address, jlong color_addr) {
 
     Mat *mat_ptr = (Mat *)address;
+    Mat *color_ptr = (Mat *)color_addr;
+    //TODO: Detect and compute the frame
+    detectAndCompute(mat_ptr, 2);
 
+    const float threshold = 0.3f;
+    //TODO: Find matches between target and the frame
+    int count = 0;
+    vector<coor> coors;
+    for (int i = 0; i < sift.keypoints.size(); ++i) {
+        float min_dist = 100000000.0f;
+        int min_j = 0;
+        for (int j = 0; j < sift_ptr->keypoints.size(); ++j) {
+            float temp  = dist(sift.descriptors[i], sift_ptr->descriptors[j]);
+            if (temp < min_dist) {
+                min_dist = temp;
+                min_j = j;
+            }
+        }
+        if (min_dist < threshold) {
+            ++count;
+            coors.push_back((coor){sift_ptr->keypoints[min_j].ix, sift_ptr->keypoints[min_j].iy});
+            for (int k = -5; k <= 5; ++k) {
+                color_ptr->at<Vec4b>((sift_ptr->keypoints[min_j].iy + 1) * 2 - 1 + k,
+                                     (sift_ptr->keypoints[min_j].ix + 1) * 2 - 1) = Vec4b(0, 255, 0, 255);
+                color_ptr->at<Vec4b>((sift_ptr->keypoints[min_j].iy + 1) * 2 - 1,
+                                     (sift_ptr->keypoints[min_j].ix + 1) * 2 - 1 + k) = Vec4b(0, 255, 0, 255);
+            }
+        }
+    }
+    if (count > 5) {
+        float *dists = new float[count - 1];
+        for (int i = 1; i < count; ++i) {
+            dists[i - 1] = pow(coors[0].x - coors[i].x, 2) + pow(coors[0].y - coors[i].y, 2);
+        }
+        sort(dists, dists + count - 1);
+        float dist_threshold;
+        float acc = 0.0f;
+        for (int i = 0; i < count / 5; ++i) {
+            acc += dists[i];
+        }
+        dist_threshold = acc / (count / 5);
+
+        for (int i = 0; i < count; ++i) {
+            coors[i].neigh_num = 0;
+            coors[i].neigh_ptr = (coor **)malloc(sizeof(*coors[i].neigh_ptr) * (count - 1));
+            for (int j = 0; j < count; ++j) {
+                if (i == j) {
+                    continue;
+                }
+                if (pow(coors[i].x - coors[j].x, 2) + pow(coors[i].y - coors[j].y, 2) < dist_threshold) {
+                    coors[i].neigh_ptr[coors[i].neigh_num++] = &coors[j];
+                }
+            }
+        }
+        int max_neigh_index = 0;
+        int max_neigh_num = 0;
+        for (int i = 0; i < count; ++i) {
+            if (coors[i].neigh_num > max_neigh_num) {
+                max_neigh_num = coors[i].neigh_num;
+                max_neigh_index = i;
+            }
+        }
+        int min_x, max_x, min_y, max_y;
+        min_x = max_x = coors[max_neigh_index].x;
+        min_y = max_y = coors[max_neigh_index].y;
+        for (int i = 0; i < max_neigh_num; ++i) {
+            if (coors[max_neigh_index].neigh_ptr[i]->x < min_x) {
+                min_x = coors[max_neigh_index].neigh_ptr[i]->x;
+            }
+            if (coors[max_neigh_index].neigh_ptr[i]->x > max_x) {
+                max_x = coors[max_neigh_index].neigh_ptr[i]->x;
+            }
+            if (coors[max_neigh_index].neigh_ptr[i]->y < min_y) {
+                min_y = coors[max_neigh_index].neigh_ptr[i]->y;
+            }
+            if (coors[max_neigh_index].neigh_ptr[i]->y > max_y) {
+                max_y = coors[max_neigh_index].neigh_ptr[i]->y;
+            }
+        }
+        for (int i = (min_x + 1) * 2 - 1; i <= (max_x + 1) * 2 - 1; ++i) {
+            color_ptr->at<Vec4b>((min_y + 1) * 2 - 1, i) = Vec4b(0, 255, 0, 255);
+            color_ptr->at<Vec4b>((max_y + 1) * 2 - 1, i) = Vec4b(0, 255, 0, 255);
+        }
+        for (int i = (min_y + 1) * 2 - 1; i <= (max_y + 1) * 2 - 1; ++i) {
+            color_ptr->at<Vec4b>(i, (min_x + 1) * 2 - 1) = Vec4b(0, 255, 0, 255);
+            color_ptr->at<Vec4b>(i, (max_x + 1) * 2 - 1) = Vec4b(0, 255, 0, 255);
+        }
+    }
     pre_mat = *(Mat *)address;
+    delete sift_ptr;
+    return true;
+}
+extern "C"
+JNIEXPORT void JNICALL
+Java_com_selab_gpufinal_CameraActivity_detectAndCompute(JNIEnv *env, jobject instance,
+                                                        jlong address) {
+    //TODO: Detect and compute the frame
+    detectAndCompute((Mat *)address, 1);
+    memcpy(&sift, sift_ptr, sizeof(sift));
+    sift.descriptors = (float(*)[128])malloc(sizeof(*sift.descriptors) * sift_ptr->keypoints.size());
+    for (int i = 0; i < sift_ptr->keypoints.size(); ++i) {
+            for (int j = 0; j < 128; ++j) {
+                sift.descriptors[i][j] = sift_ptr->descriptors[i][j];
+            }
+    }
+    delete sift_ptr;
+}
+
+
+float dist(float *a, float *b)
+{
+    float acc = 0.0f;
+    for (int k = 0; k < 128; ++k) {
+        acc += pow(a[k] - b[k], 2);
+    }
+    return acc;
 }
